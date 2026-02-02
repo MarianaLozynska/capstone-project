@@ -83,12 +83,18 @@ capstone_project/
 ├── README.md
 ├── initial_data/          # Initial function data (.npy files)
 │   ├── function_1/
+│   │   ├── initial_inputs.npy
+│   │   └── initial_outputs.npy
 │   ├── function_2/
-│   └── ...
-├── week 1/               # Week 1 analysis and exploration
+│   └── ... (function_3 through function_8)
+├── week 1/               # Week 1 manual analysis and exploration
 │   └── function_analysis.ipynb
 └── week 2/               # Week 2 Bayesian Optimization
-    └── week2_bayesian_optimization.ipynb
+    ├── week2_function_analysis.ipynb
+    ├── Week1_Reflection.md
+    ├── inputs.txt        # Week 1 submitted points
+    ├── outputs.txt       # Week 1 results
+    └── week2_clean_data.npz
 ```
 
 ## Key Insights
