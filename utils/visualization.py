@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.metrics import r2_score
-from bayesian_optimization import fit_gp
+from .bayesian_optimization import fit_gp
 
 
 def visualize_gp_2d(func_id, X_sample, y_sample, next_point, resolution=100):
