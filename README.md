@@ -1,146 +1,161 @@
 # Bayesian Optimization Capstone Project
 
-## Overview
+## Section 1: Project Overview
 
-This capstone project involves optimizing eight unknown black-box functions using Bayesian Optimization techniques. The challenge simulates real-world machine learning scenarios where function evaluations are expensive and limited, requiring intelligent sampling strategies that balance exploration and exploitation.
+This capstone project tackles the **Black-Box Optimization (BBO) challenge**: optimizing eight unknown functions where we have no access to equations, derivatives, or internal structure. The only way to learn about each function is by querying input points and observing outputs — simulating real-world scenarios where function evaluations are expensive and limited.
 
-## Project Goal
+**Goal**: Find the maximum value for each of eight synthetic functions by iteratively submitting one query point per function per week, using intelligent sampling strategies that balance exploration and exploitation.
 
-Find the maximum value for each of eight synthetic functions by iteratively querying points and updating optimization strategies based on observed outputs. Each function represents a different real-world optimization challenge, from drug discovery to hyperparameter tuning.
+**Real-world relevance**: BBO mirrors critical ML challenges — hyperparameter tuning, drug discovery, chemical process optimization, and A/B testing — where each evaluation costs time, money, or computational resources. Learning to optimize efficiently under uncertainty is a core skill in applied machine learning.
 
-## The Challenge
+**Career relevance**: This project builds practical experience with Gaussian Processes, acquisition functions, and adaptive optimization — techniques directly applicable to ML engineering, data science, and research roles. The iterative decision-making process (analyze → strategize → submit → reflect) mirrors real production ML workflows.
 
-- **8 black-box functions** with varying dimensionality (2D to 8D)
-- **Weekly iterations**: Submit 1 point per function each week
-- **Limited evaluations**: Each query is precious - strategic sampling is essential
-- **Unknown landscapes**: No access to function equations or derivatives
+---
 
-## Function Descriptions
+## Section 2: Inputs and Outputs
 
-### Function 1 (2D) - Radiation Source Detection
-Detect likely contamination sources in a two-dimensional area, similar to a radiation field, where only proximity yields a non-zero reading. The system uses Bayesian optimization to tune detection parameters and reliably identify both strong and weak sources.
+### Inputs
+- **Format**: Continuous values in the range [0, 1] for each dimension
+- **Dimensions**: Vary per function (2D to 8D)
+- **Constraints**: One query point per function per week
+- **Submission format**: Hyphen-separated values, e.g., `0.074136-0.522573`
 
-**Challenge**: Extremely narrow peaks with most of the space yielding near-zero values.
+| Function | Dimensions | Domain |
+|----------|-----------|--------|
+| 1 | 2D | [0,1]² |
+| 2 | 2D | [0,1]² |
+| 3 | 3D | [0,1]³ |
+| 4 | 4D | [0,1]⁴ |
+| 5 | 4D | [0,1]⁴ |
+| 6 | 5D | [0,1]⁵ |
+| 7 | 6D | [0,1]⁶ |
+| 8 | 8D | [0,1]⁸ |
 
-### Function 2 (2D) - Noisy Black Box Model
-A mystery ML model that takes two inputs and returns a log-likelihood score. The output is noisy, and depending on the starting point, optimization may get stuck in local optima.
+### Outputs
+- **Response value**: A single scalar score returned by the black-box function
+- **Performance signal**: Higher values indicate better performance (maximization)
+- **No gradient information**: Only the function value is returned
 
-**Challenge**: Multiple local maxima requiring careful exploration-exploitation balance.
+### Example
 
-### Function 3 (3D) - Drug Discovery
-Testing combinations of three compounds to create a new medicine. The goal is to minimize adverse reactions (framed as maximizing the negative of side effects).
+```
+Input:  0.074136-0.522573        (2D query for Function 1)
+Output: 0.09786978019774146      (scalar response)
+```
 
-**Challenge**: Three-dimensional search space with safety constraints.
+---
 
-### Function 4 (4D) - Warehouse Product Placement
-Optimally placing products across warehouses for a business with high online sales. The function has four hyperparameters to tune, with output reflecting the difference from an expensive baseline.
+## Section 3: Challenge Objectives
 
-**Challenge**: Dynamic system with local optima requiring robust validation.
+**Primary goal**: **Maximize** each function's output value.
 
-### Function 5 (4D) - Chemical Process Yield
-Optimizing a four-variable function representing the yield of a chemical process. The function is typically unimodal with a single peak.
+### Constraints and Limitations
+- **Limited queries**: Only 1 point per function per week — every query must be strategic
+- **Unknown function structure**: No equations, no derivatives, no knowledge of smoothness or modality
+- **Response delay**: Results returned after each weekly submission, preventing rapid iteration
+- **Varying complexity**: Functions range from 2D (manageable) to 8D (curse of dimensionality)
+- **Diverse landscapes**: Some functions have narrow peaks (Function 1), plateaus (Function 3), or steep gradients (Function 5)
+- **No resets**: Each submitted point permanently consumes a query budget
 
-**Challenge**: Finding the global optimum in a four-dimensional space with a single dominant peak.
+---
 
-### Function 6 (5D) - Recipe Optimization
-Optimizing a cake recipe with five ingredients (flour, sugar, eggs, butter, milk). Each recipe is evaluated with a combined score based on flavor, consistency, calories, waste, and cost, where lower is better (maximizing towards zero).
+## Section 4: Technical Approach
 
-**Challenge**: Five-dimensional space with multiple competing objectives.
+### Core Method: Bayesian Optimization with Gaussian Processes
 
-### Function 7 (6D) - ML Hyperparameter Tuning
-Tuning six hyperparameters of an ML model (e.g., learning rate, regularization strength, number of hidden layers). The function returns the model's performance score.
+The project uses **Gaussian Process (GP) regression** as a surrogate model combined with **acquisition functions** to select query points:
 
-**Challenge**: Six-dimensional hyperparameter space with complex interactions.
-
-### Function 8 (8D) - High-Dimensional Optimization
-Eight-dimensional function where each parameter affects the output independently. Finding the global maximum is difficult due to the curse of dimensionality.
-
-**Challenge**: Very high-dimensional space where identifying strong local maxima is the practical strategy.
-
-## Methodology
-
-### Bayesian Optimization Approach
-
-This project uses Gaussian Process (GP) regression with acquisition functions to intelligently select the next points to sample:
-
-1. **Gaussian Process Surrogate Model**: Learns the function landscape from observed data, providing both predictions and uncertainty estimates
+1. **GP Surrogate Model**: Learns the function landscape from observed data, providing predictions (μ) and uncertainty estimates (σ) at every point
 2. **Acquisition Functions**:
-   - **Expected Improvement (EI)**: Balances exploitation and exploration
-   - **Upper Confidence Bound (UCB)**: Optimistically samples high-uncertainty regions
+   - **Expected Improvement (EI)**: Balances exploitation and exploration via xi parameter
+   - **Upper Confidence Bound (UCB)**: Optimistically samples high-uncertainty regions via kappa parameter
+3. **Optimization**: L-BFGS-B algorithm with multiple restarts to maximize acquisition functions
 
-### Weekly Process
+### Exploration vs Exploitation Balance
 
-1. **Data Review**: Analyze all accumulated data (initial + previous weeks)
-2. **Strategy Selection**: Choose exploration vs exploitation based on current knowledge
-3. **Point Generation**: Use Bayesian Optimization to suggest next sampling points
-4. **Submission**: Submit 8 points (one per function) via the portal
-5. **Reflection**: Document strategy, reasoning, and results
+The xi and kappa parameters control this trade-off:
+- **High exploration** (xi=0.1): Search broadly for new peaks — used when stuck or lost
+- **Moderate exploration** (xi=0.01): Balanced search — default for improving functions
+- **Exploitation** (xi=0.001): Focus near known best — used when near convergence
+- **Fine-tuning** (UCB, kappa=0.5): Small adjustments — used for nearly converged functions
+
+Strategy is adjusted per function per week based on performance trends and sensitivity analysis.
+
+### Week 1: Manual Exploration with PCA
+
+- Visualized initial data using **PCA** to reduce high-dimensional functions to 2D
+- Identified promising regions through visual analysis of projected landscapes
+- Selected query points based on PCA-projected patterns and cluster analysis
+- **Limitation discovered**: PCA loses information in higher dimensions, leading to suboptimal recommendations for Functions 2-4
+
+### Week 2: Bayesian Optimization
+
+- Switched to **Bayesian Optimization** working in native dimensionality (no PCA)
+- Applied function-specific strategies based on Week 1 performance:
+  - Functions with poor Week 1 results → higher exploration (EI, xi=0.01)
+  - Functions with good Week 1 results → exploitation (EI, xi=0.001)
+- **Results**: 6 out of 8 functions improved
+  - Function 4 breakthrough: -4.03 → 0.352 (GP found optimal region in 4D)
+  - Function 1 regression: 0.098 → ~0 (exploitation too aggressive, lost narrow peak)
+
+### Week 3: Sensitivity Analysis + Adjusted Strategies
+
+- Implemented **sensitivity analysis**: vary each dimension independently from best point, measure GP gradient magnitude
+- Diagnosed stuck functions vs converging functions using gradient patterns:
+  - Flat gradients + worsening → lost peak (Function 1) → high exploration (xi=0.1)
+  - Flat gradients + plateau → stuck (Function 3) → increased exploration (xi=0.05)
+  - Steep gradients + at bounds → critical dims identified (Function 5) → exploitation
+  - Flat gradients + high value → near convergence (Functions 7-8) → fine-tuning (UCB)
+- **What makes this unique**: Data-driven strategy adjustment — instead of fixed parameters, sensitivity analysis diagnoses each function's state and prescribes targeted exploration levels
+
+---
 
 ## Project Structure
 
 ```
 capstone_project/
 ├── README.md
-├── initial_data/          # Initial function data (.npy files)
-│   ├── function_1/
-│   │   ├── initial_inputs.npy
-│   │   └── initial_outputs.npy
-│   ├── function_2/
-│   └── ... (function_3 through function_8)
-├── week 1/               # Week 1 manual analysis and exploration
-│   └── function_analysis.ipynb
-└── week 2/               # Week 2 Bayesian Optimization
-    ├── week2_function_analysis.ipynb
-    ├── Week1_Reflection.md
-    ├── inputs.txt        # Week 1 submitted points
-    ├── outputs.txt       # Week 1 results
-    └── week2_clean_data.npz
+├── utils/
+├── initial_data/
+├── week 1/
+├── week 2/
+└── week 3/  
 ```
-
-## Key Insights
-
-### Week 1 Results
-- **Function 1**: Found first significant signal (0.09787) after exploring sparse landscape
-- **Functions 5, 6**: Achieved strong improvements through exploitation
-- **Functions 2, 3, 4**: Identified need for course correction in Week 2
-- **Functions 7, 8**: Converging on optimal regions with fine-tuning
-
-### Optimization Strategies
-- **Exploration** (high xi/kappa): Used for sparse or poorly understood functions
-- **Exploitation** (low xi/kappa): Used when near known peaks
-- **Adaptive approach**: Strategy changes week-to-week based on results
 
 ## Results Summary
 
-The Bayesian Optimization approach successfully improved or maintained performance across all functions, demonstrating effective balance between exploration and exploitation. The GP model's uncertainty estimates guided sampling toward promising regions while avoiding redundant evaluations.
+| Function | Dims | Week 1 | Week 2 | Trend |
+|----------|------|--------|--------|-------|
+| 1 | 2D | 0.0979 | ~0 | Regression (lost narrow peak) |
+| 2 | 2D | 0.1495 | 0.6138 | Improving |
+| 3 | 3D | -0.0664 | -0.0499 | Slow improvement |
+| 4 | 4D | -4.0313 | 0.3523 | Breakthrough |
+| 5 | 4D | 1548.81 | 1688.07 | Improving |
+| 6 | 5D | -0.9229 | -0.5210 | Improving |
+| 7 | 6D | 1.7020 | 1.7845 | Improving |
+| 8 | 8D | 8.9296 | 9.6493 | Improving |
 
 ## Tools & Libraries
 
 - **Python 3.12**
 - **NumPy**: Data manipulation
-- **scikit-learn**: Gaussian Process regression
-- **SciPy**: Optimization (L-BFGS-B)
-- **Matplotlib**: Visualization (optional)
+- **scikit-learn**: Gaussian Process regression (Matern kernel)
+- **SciPy**: Optimization (L-BFGS-B for acquisition function maximization)
+- **Matplotlib**: Visualization
 
 ## Running the Code
 
 ```bash
-# Navigate to week directory
-cd "week 2"
+# Navigate to desired week
+cd "week 3"
 
 # Open Jupyter notebook
-jupyter notebook week2_bayesian_optimization.ipynb
+jupyter notebook week3_function_analysis.ipynb
 
-# Run all cells to generate Week 2 recommendations
+# Run all cells to generate recommendations
 ```
 
-## Future Work
-
-For subsequent weeks:
-1. Add new week's results to the notebook
-2. Update combined data (initial + all previous weeks)
-3. Adjust exploration/exploitation parameters based on convergence
-4. Run Bayesian Optimization to generate next week's recommendations
+Each week's notebook loads the previous week's clean data, adds new results, and generates next recommendations.
 
 ---
 
