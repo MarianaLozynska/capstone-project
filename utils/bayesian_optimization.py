@@ -55,7 +55,47 @@ def upper_confidence_bound(X, X_sample, Y_sample, gp, kappa=2.0):
     return mu + kappa * sigma
 
 
-def fit_gp(X_sample, Y_sample):
+def thompson_sampling(X_sample, Y_sample, bounds, gp=None, n_candidates=5000, alpha=1e-6):
+    """
+    Thompson Sampling acquisition: draw a random function from the GP posterior,
+    then pick the candidate that maximises it.
+
+    Unlike EI/UCB which always converge to the same point (deterministic optimisation
+    of a fixed acquisition surface), TS draws a *different* random function each time,
+    so it naturally explores diverse regions.
+
+    Args:
+        X_sample: Observed inputs (n_samples, n_dims)
+        Y_sample: Observed outputs (n_samples,)
+        bounds: Bounds for each dimension as numpy array (n_dims, 2)
+        gp: Pre-fitted GP (if None, fits a new one)
+        n_candidates: Number of random candidates to evaluate
+        alpha: GP noise parameter
+
+    Returns:
+        next_point: Suggested next point (n_dims,)
+        gp: Fitted GP model
+    """
+    dim = X_sample.shape[1]
+
+    if gp is None:
+        gp = fit_gp(X_sample, Y_sample, alpha=alpha)
+
+    # Generate random candidates within bounds
+    candidates = np.random.uniform(
+        bounds[:, 0], bounds[:, 1], size=(n_candidates, dim)
+    )
+
+    # Draw one sample from the GP posterior at all candidates
+    # sample_y returns shape (n_candidates, n_samples_drawn)
+    sample = gp.sample_y(candidates, n_samples=1, random_state=None)
+
+    # Pick the candidate where the drawn function is highest
+    best_idx = np.argmax(sample[:, 0])
+    return candidates[best_idx], gp
+
+
+def fit_gp(X_sample, Y_sample, alpha=1e-6):
     """
     Fit Gaussian Process model to observed data
 
@@ -71,14 +111,15 @@ def fit_gp(X_sample, Y_sample):
     gp = GaussianProcessRegressor(
         kernel=kernel,
         n_restarts_optimizer=10,
-        alpha=1e-6,
+        alpha=alpha,
         normalize_y=True
     )
     gp.fit(X_sample, Y_sample)
     return gp
 
 
-def propose_next_point(X_sample, Y_sample, bounds, acq_func='EI', xi=0.01, kappa=2.0, n_restarts=25):
+def propose_next_point(X_sample, Y_sample, bounds, acq_func='EI', xi=0.01, kappa=2.0,
+                       n_restarts=25, alpha=1e-6, n_candidates=5000):
     """
     Proposes the next sampling point using Bayesian Optimization
 
@@ -86,10 +127,12 @@ def propose_next_point(X_sample, Y_sample, bounds, acq_func='EI', xi=0.01, kappa
         X_sample: Observed inputs (n_samples, n_dims)
         Y_sample: Observed outputs (n_samples,)
         bounds: Bounds for each dimension [(min, max), ...] as numpy array
-        acq_func: 'EI' (Expected Improvement) or 'UCB' (Upper Confidence Bound)
+        acq_func: 'EI', 'UCB', or 'TS' (Thompson Sampling)
         xi: Exploration parameter for EI
         kappa: Exploration parameter for UCB
-        n_restarts: Number of random restarts for optimization
+        n_restarts: Number of random restarts for EI/UCB optimization
+        alpha: GP noise parameter (higher = more regularisation)
+        n_candidates: Number of random candidates for Thompson Sampling
 
     Returns:
         next_point: Suggested next point to sample (n_dims,)
@@ -98,9 +141,14 @@ def propose_next_point(X_sample, Y_sample, bounds, acq_func='EI', xi=0.01, kappa
     dim = X_sample.shape[1]
 
     # Fit Gaussian Process
-    gp = fit_gp(X_sample, Y_sample)
+    gp = fit_gp(X_sample, Y_sample, alpha=alpha)
 
-    # Optimize acquisition function
+    # Thompson Sampling: fundamentally different — draw random function, optimise it
+    if acq_func == 'TS':
+        return thompson_sampling(X_sample, Y_sample, bounds, gp=gp,
+                                 n_candidates=n_candidates, alpha=alpha)
+
+    # EI / UCB: deterministic optimisation of acquisition surface
     min_val = 1e10
     min_x = None
 
