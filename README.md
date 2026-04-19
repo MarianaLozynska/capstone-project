@@ -12,6 +12,8 @@ This project tackles the **Black-Box Optimization (BBO) challenge**: maximising 
 
 ## Results
 
+![Score progression across 12 weeks](visuals/score_progression.png)
+
 | Function | Dims | Best Score | Best Week | Trend |
 |----------|------|-----------|-----------|-------|
 | 1 | 2D | 0.965 | W10 | 7 improvements via alternating-dim nudges; W11 dim1 overshoot |
